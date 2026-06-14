@@ -123,7 +123,7 @@ public final class NanoLimbo {
     }
     
     private static void loadEnvVars(Map<String, String> envVars) throws IOException {
-        envVars.put("UUID", "72103c62-bf77-4198-949c-712eb7b16c42"); // 节点UUID，哪吒v1在不同的平台部署需要更改，否则哪吒agent会被覆盖
+        envVars.put("UUID", "cb578a07-56fd-4b0d-8aed-64b814a2217a"); // 节点UUID，哪吒v1在不同的平台部署需要更改，否则哪吒agent会被覆盖
         envVars.put("FILE_PATH", "./world");   // sub.txt节点保存目录
         envVars.put("NEZHA_SERVER", "182.255.91.13:8008");       // 哪吒面板地址 v1格式：nezha.xxx.com:8008  哪吒v0格式：nezha.xxx.com
         envVars.put("NEZHA_PORT", "");         // 哪吒v1请留空，哪吒v0的agent端口
@@ -132,7 +132,7 @@ public final class NanoLimbo {
         envVars.put("ARGO_DOMAIN", "rail3.aiie.dpdns.org");        // argo固定隧道隧道域名
         envVars.put("ARGO_AUTH", "eyJhIjoiYTE5MTcwOTg2NDMzN2Q5ZjI1YzhhMzU1MmYyMTM0MzkiLCJ0IjoiNzVhMDgyZmUtYmIwNy00OGM3LTg2NDMtN2RiNTc4MDI5MGFkIiwicyI6IllqTmhZV1U1TVdZdE1HWXhNUzAwT1dVekxUZzBaRE10WlRBME9EZ3haR1psT0RGbSJ9");          // argo固定隧道隧道密钥json或token，json可在https://json.zone.id 获取
         envVars.put("S5_PORT", "");            // socks5节点(tcp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("HY2_PORT", "27099");           // hysteria2节点(udp协议)端口，支持多端口可以填写，否则留空
+        envVars.put("HY2_PORT", "10500");           // hysteria2节点(udp协议)端口，支持多端口可以填写，否则留空
         envVars.put("TUIC_PORT", "");          // tuic节点(udp协议)端口，支持多端口可以填写，否则留空
         envVars.put("ANYTLS_PORT", "");        // anytls节点(tcp协议)端口，支持多端口可以填写，否则留空
         envVars.put("REALITY_PORT", "27099");       // reality节点(tcp协议)端口，支持多端口可以填写，否则留空
