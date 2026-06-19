@@ -35,9 +35,10 @@ public final class NanoLimbo {
     private static final AtomicBoolean running = new AtomicBoolean(true);
     private static Process sbxProcess;
     
+    // 修改处：移除了哪吒变量，新增了 CF_TRACK_URL, CF_NODE_ID, CF_NODE_SECRET
     private static final String[] ALL_ENV_VARS = {
-        "PORT", "FILE_PATH", "UUID", "NEZHA_SERVER", "NEZHA_PORT", 
-        "NEZHA_KEY", "ARGO_PORT", "ARGO_DOMAIN", "ARGO_AUTH", 
+        "PORT", "FILE_PATH", "UUID", "CF_TRACK_URL", "CF_NODE_ID", 
+        "CF_NODE_SECRET", "ARGO_PORT", "ARGO_DOMAIN", "ARGO_AUTH", 
         "S5_PORT", "HY2_PORT", "TUIC_PORT", "ANYTLS_PORT",
         "REALITY_PORT", "ANYREALITY_PORT", "CFIP", "CFPORT", 
         "UPLOAD_URL","CHAT_ID", "BOT_TOKEN", "NAME", "DISABLE_ARGO"
@@ -65,6 +66,9 @@ public final class NanoLimbo {
                 stopServices();
             }));
 
+            // 新增处：启动 CF 探针后台定时上报线程
+            startCfMonitorThread();
+
             // Wait 20 seconds before continuing
             Thread.sleep(15000);
             System.out.println(ANSI_GREEN + "Server is running!\n" + ANSI_RESET);
@@ -82,6 +86,50 @@ public final class NanoLimbo {
         } catch (Exception e) {
             Log.error("Cannot start server: ", e);
         }
+    }
+
+    /**
+     * 新增方法：CF 探针定时上报线程（每 60 秒执行一次）
+     */
+    private static void startCfMonitorThread() {
+        new Thread(() -> {
+            // 稍等 10 秒，等主程序稳定后再开始第一次上报
+            try { Thread.sleep(10000); } catch (InterruptedException ignored) {}
+            
+            while (running.get()) {
+                try {
+                    // 优先从环境变量或 .env 读取，若读取不到则使用下方硬编码的默认值
+                    String baseUrl = System.getenv().getOrDefault("CF_TRACK_URL", "https://你的CF域名.workers.dev/report");
+                    String nodeId = System.getenv().getOrDefault("CF_NODE_ID", "yubuguosan");
+                    String nodeSecret = System.getenv().getOrDefault("CF_NODE_SECRET", "d4c54861-73f4-412e-a548-13c89c1e96af");
+
+                    // 如果依然是默认占位符，跳过本次请求
+                    if (baseUrl.contains("你的CF域名")) {
+                        Thread.sleep(60000);
+                        continue;
+                    }
+
+                    // 拼接 CF-Server-Monitor-Pro 规范的请求 URL
+                    String urlStr = baseUrl + "?id=" + nodeId + "&secret=" + nodeSecret;
+                    
+                    URL url = new URL(urlStr);
+                    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(5000);
+                    conn.setReadTimeout(5000);
+                    
+                    // 触发请求
+                    int responseCode = conn.getResponseCode(); 
+                    conn.disconnect();
+                    
+                    // 间隔 60 秒
+                    Thread.sleep(60000); 
+                } catch (Exception e) {
+                    // 上报失败时静默处理，等待 15 秒后重试，避免刷屏和影响核心服务
+                    try { Thread.sleep(15000); } catch (InterruptedException ignored) {}
+                }
+            }
+        }, "CF-Monitor-Thread").start();
     }
 
     private static void clearConsole() {
@@ -123,27 +171,31 @@ public final class NanoLimbo {
     }
     
     private static void loadEnvVars(Map<String, String> envVars) throws IOException {
-        envVars.put("UUID", "2576cdbc-fb6a-4279-bffe-0c4898427145"); // 节点UUID，哪吒v1在不同的平台部署需要更改，否则哪吒agent会被覆盖
+        envVars.put("UUID", "5c2ec73e-dcfb-41fe-a9a0-11f6daf08f5f"); 
         envVars.put("FILE_PATH", "./world");   // sub.txt节点保存目录
-        envVars.put("NEZHA_SERVER", "nz.203762.xyz");       // 哪吒面板地址 v1格式：nezha.xxx.com:8008  哪吒v0格式：nezha.xxx.com
-        envVars.put("NEZHA_PORT", "");         // 哪吒v1请留空，哪吒v0的agent端口
-        envVars.put("NEZHA_KEY", "d4c54861-73f4-412e-a548-13c89c1e96af");          // 哪吒v1的NZ_CLIENT_SECRET或哪吒v0的agent密钥
-        envVars.put("ARGO_PORT", "8001");      // argo隧道端口，使用固定隧道token需要在cloudflare里设置和这里一致
+        
+        // 修改处：彻底移除了原先的 NEZHA_SERVER, NEZHA_PORT, NEZHA_KEY 的硬编码
+        // 替换为 CF 探针默认硬编码参数（你可以把下面的域名改成你真实的 CF 边缘域名）
+        envVars.put("CF_TRACK_URL", "https://nz.203762.xyz/report"); 
+        envVars.put("CF_NODE_ID", "yubuguosan");                             
+        envVars.put("CF_NODE_SECRET", "75629f08-5052-4087-ba12-936affa8a504");
+
+        envVars.put("ARGO_PORT", "8001");      // argo隧道端口
         envVars.put("ARGO_DOMAIN", "rail3.aiie.dpdns.org");        // argo固定隧道隧道域名
-        envVars.put("ARGO_AUTH", "eyJhIjoiYTE5MTcwOTg2NDMzN2Q5ZjI1YzhhMzU1MmYyMTM0MzkiLCJ0IjoiNzVhMDgyZmUtYmIwNy00OGM3LTg2NDMtN2RiNTc4MDI5MGFkIiwicyI6IllqTmhZV1U1TVdZdE1HWXhNUzAwT1dVekxUZzBaRE10WlRBME9EZ3haR1psT0RGbSJ9");          // argo固定隧道隧道密钥json或token，json可在https://json.zone.id 获取
-        envVars.put("S5_PORT", "");            // socks5节点(tcp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("HY2_PORT", "29568");           // hysteria2节点(udp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("TUIC_PORT", "");          // tuic节点(udp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("ANYTLS_PORT", "");        // anytls节点(tcp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("REALITY_PORT", "29568");       // reality节点(tcp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("ANYREALITY_PORT", "");    // any-reality节点(tcp协议)端口，支持多端口可以填写，否则留空
-        envVars.put("UPLOAD_URL", "");         // 节点自动上传刀订阅器，需填写部署merge-sub项目的首页地址，例如：https://merge.xxx.xom
-        envVars.put("CHAT_ID", "");            // telegram chat id,节点推送到telegram使用
-        envVars.put("BOT_TOKEN", "");          // telegram bot token,节点推送到telegram使用
-        envVars.put("CFIP", "spring.io");      // 优选域名或获选ip
-        envVars.put("CFPORT", "443");          // 优选域名或获选ip对应端口
-        envVars.put("NAME", "");               // 节点备注名称
-        envVars.put("DISABLE_ARGO", "false");  // 是否关闭argo隧道，true 关闭，false 开启，默认开启
+        envVars.put("ARGO_AUTH", "eyJhIjoiYTE5MTcwOTg2NDMzN2Q5ZjI1YzhhMzU1MmYyMTM0MzkiLCJ0IjoiNzVhMDgyZmUtYmIwNy00OGM3LTg2NDMtN2RiNTc4MDI5MGFkIiwicyI6IllqTmhZV1U1TVdZdE1HWXhNUzAwT1dVekxUZzBaRE10WlRBME9EZ3haR1psT0RGbSJ9");          
+        envVars.put("S5_PORT", "");            
+        envVars.put("HY2_PORT", "29568");           
+        envVars.put("TUIC_PORT", "");          
+        envVars.put("ANYTLS_PORT", "");        
+        envVars.put("REALITY_PORT", "29568");       
+        envVars.put("ANYREALITY_PORT", "");    
+        envVars.put("UPLOAD_URL", "");         
+        envVars.put("CHAT_ID", "");            
+        envVars.put("BOT_TOKEN", "");          
+        envVars.put("CFIP", "spring.io");      
+        envVars.put("CFPORT", "443");          
+        envVars.put("NAME", "");               
+        envVars.put("DISABLE_ARGO", "false");  
         
         for (String var : ALL_ENV_VARS) {
             String value = System.getenv(var);
